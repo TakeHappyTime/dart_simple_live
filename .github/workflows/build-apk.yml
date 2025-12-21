@@ -2,8 +2,8 @@ name: Build APK
 
 on:
   push:
-    branches: [ main, master ]  # 当 push 到 main/master 分支时自动触发
-  workflow_dispatch:  # 支持手动触发
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,17 +13,21 @@ jobs:
       - name: Checkout 代码
         uses: actions/checkout@v4
 
-      - name: 设置 Java
+      - name: 设置 Java 11（更兼容旧项目）
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '11'  # 改成 11
 
-      - name: 设置 Flutter
+      - name: 设置 Flutter（指定兼容版本）
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'  # 使用最新 stable 版本；如果项目对版本敏感，可改为具体版本如 '3.22.3'
+          flutter-version: '3.22.3'  # 指定版本，先试这个；如果还失败，可换成 3.19.6 或 3.16.0
+          channel: 'stable'
           cache: true
+
+      - name: 查看 Flutter 环境（可选，帮诊断）
+        run: flutter doctor -v
 
       - name: 安装依赖（手机端）
         run: |
@@ -33,7 +37,7 @@ jobs:
       - name: 构建 Release APK（手机端）
         run: |
           cd simple_live_app
-          flutter build apk --release
+          flutter build apk --release --verbose  # 加 --verbose 方便看详细错误
 
       - name: 上传 APK 文件
         uses: actions/upload-artifact@v4
