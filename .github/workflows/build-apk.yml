@@ -1,64 +1,50 @@
-name: Build APK
+name: Build Android APK & Release
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  release:
-    types: [ created ]  # 可选：Release 时触发
+    tags:
+      - 'v*'  # push v开头的 tag 触发（如 v1.0.0、v2.1）
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-apk:
+    runs-on: ubuntu-latest  # Android 构建推荐 Linux
 
     steps:
-    - uses: actions/checkout@v4  # 克隆仓库
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: Set up Java  # Android 需要 JDK
+    - name: Setup Java (for Android)
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Set up Flutter  # 安装 Flutter
+    - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.13.0'  # 匹配仓库版本
-        channel: 'stable'
+        flutter-version: '3.38.x'  # 项目兼容版本（pubspec.yaml 要求），可改 latest 测试
+        channel: stable
 
-    - name: Get dependencies  # 获取 pub 依赖
+    - name: Get dependencies
       run: flutter pub get
-      working-directory: ./simple_live_app  # 指定 app 目录
+      working-directory: simple_live_app  # 手机端项目目录（如果你的 fork 不同，改这里）
 
-    - name: Build APK  # 编译 Release APK
-      run: flutter build apk --release
-      working-directory: ./simple_live_app
+    - name: Build APK (split per ABI)
+      run: flutter build apk --release --split-per-abi
+      working-directory: simple_live_app
 
-    - name: Upload APK artifact  # 上传 APK 供下载
+    - name: Upload Artifacts (for debug)
       uses: actions/upload-artifact@v4
       with:
-        name: app-release.apk
-        path: simple_live_app/build/app/outputs/flutter-apk/app-release.apk
+        name: android-apks
+        path: simple_live_app/build/app/outputs/flutter-apk/*.apk
 
-    # 可选：签名 APK（需在仓库 Settings > Secrets 添加 keystore）
-    # - name: Sign APK
-    #   uses: r0adkll/sign-android-release@v1
-    #   with:
-    #     releaseDirectory: simple_live_app/build/app/outputs/flutter-apk
-    #     signingKeyBase64: ${{ secrets.SIGNING_KEY_BASE64 }}
-    #     alias: ${{ secrets.KEY_ALIAS }}
-    #     keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-    #     keyPassword: ${{ secrets.KEY_PASSWORD }}
-
-    # 可选：上传到 GitHub Release
-    # - name: Upload to Release
-    #   if: github.event_name == 'release'
-    #   uses: actions/upload-release-asset@v1
-    #   env:
-    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    #   with:
-    #     upload_url: ${{ github.event.release.upload_url }}
-    #     asset_path: simple_live_app/build/app/outputs/flutter-apk/app-release.apk
-    #     asset_name: app-release.apk
-    #     asset_content_type: application/vnd.android.package-archive
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/')  # 只在 tag 时发布
+      with:
+        files: |
+          simple_live_app/build/app/outputs/flutter-apk/app-*-release.apk
+        generate_release_notes: true
+        draft: false
+        prerelease: false
