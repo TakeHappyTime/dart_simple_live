@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:  # 新增这行：允许手动触发
+
 jobs:
   build-mac-ios-android:
     runs-on: macos-latest
