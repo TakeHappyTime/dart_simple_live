@@ -22,6 +22,11 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Patch signing config
+        run: |
+          # 注释掉 signingConfigs 和 signingConfig，强制用 debug
+          sed -i 's/signingConfig signingConfigs.release/\/\/ signingConfig signingConfigs.release/' simple_live_app/android/app/build.gradle.kts
+
       - run: |
           cd simple_live_app
           flutter pub get
