@@ -8,6 +8,7 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -18,18 +19,20 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.8'
+          flutter-version: '3.29.0'
           channel: 'stable'
           cache: true
+
+      - name: 安装 Android SDK Platform 36 和 NDK 28
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "ndk;28.2.13676358"
 
       - name: 生成 local.properties
         run: |
           echo "sdk.dir=$ANDROID_HOME" > simple_live_app/android/local.properties
           echo "flutter.sdk=$FLUTTER_HOME" >> simple_live_app/android/local.properties
-          echo "flutter.versionName=1.0.0" >> simple_live_app/android/local.properties
-          echo "flutter.versionCode=1" >> simple_live_app/android/local.properties
 
-      - name: 覆写精简版 build.gradle.kts（去掉所有签名配置，确保能打包）
+      - name: 覆写 build.gradle.kts（修复 compileSdk、NDK、签名）
         run: |
           cat > simple_live_app/android/app/build.gradle.kts << 'EOF'
           plugins {
@@ -40,19 +43,20 @@ jobs:
 
           android {
               namespace = "com.example.simple_live"
-              compileSdk = 34
+              compileSdk = 36
+              ndkVersion = "28.2.13676358"
 
               defaultConfig {
                   applicationId = "com.example.simple_live"
                   minSdk = 21
-                  targetSdk = 34
+                  targetSdk = 36
                   versionCode = 1
                   versionName = "1.0.0"
               }
 
               buildTypes {
                   release {
-                      signingConfig = signingConfigs.getByName("debug")
+                      signingConfig = signingConfigs.debug
                   }
               }
           }
@@ -65,16 +69,10 @@ jobs:
       - run: |
           cd simple_live_app
           flutter pub get
-          flutter build apk --release --split-per-abi
+          flutter build apk --release
 
-      - name: Upload APK (arm64-v8a)
+      - name: 上传 APK
         uses: actions/upload-artifact@v4
         with:
-          name: simple_live_arm64
-          path: simple_live_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-
-      - name: Upload APK (armeabi-v7a)
-        uses: actions/upload-artifact@v4
-        with:
-          name: simple_live_armeabi
-          path: simple_live_app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+          name: simple_live_app
+          path: simple_live_app/build/app/outputs/flutter-apk/app-release.apk
