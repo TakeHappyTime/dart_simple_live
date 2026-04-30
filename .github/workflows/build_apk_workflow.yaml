@@ -23,7 +23,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: 禁用 Flutter 匿名统计（避免卡住等待输入）
+      - name: 禁用 Flutter 匿名统计
         run: flutter config --no-analytics
 
       - name: 安装 Android SDK Platform 36 和 NDK 28
@@ -69,10 +69,10 @@ jobs:
           }
           EOF
 
-      - name: 安装依赖（修复 intl 版本冲突）
+      - name: 修复 intl 版本冲突并安装依赖
         working-directory: ./simple_live_app
         run: |
-          flutter pub add intl:0.19.0 --overwrite
+          sed -i 's/intl:.*/intl: 0.19.0/' pubspec.yaml
           flutter pub get
 
       - name: 打包 APK
