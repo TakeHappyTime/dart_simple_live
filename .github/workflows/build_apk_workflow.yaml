@@ -22,17 +22,23 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: 生成 local.properties（修复空值报错）
+      - name: 生成 local.properties（修复第44行空值报错）
         run: |
           echo "sdk.dir=$ANDROID_HOME" > simple_live_app/android/local.properties
           echo "flutter.sdk=$FLUTTER_HOME" >> simple_live_app/android/local.properties
           echo "flutter.versionName=1.0.0" >> simple_live_app/android/local.properties
           echo "flutter.versionCode=1" >> simple_live_app/android/local.properties
 
-      - name: 强制使用调试签名打包（无需签名文件）
+      - name: 生成 keystore.properties（修复签名配置读取报错）
         run: |
-          sed -i 's/signingConfig signingConfigs\.release/signingConfig signingConfigs.debug/' simple_live_app/android/app/build.gradle.kts || true
-          sed -i '/signingConfigs {/,/}/d' simple_live_app/android/app/build.gradle.kts || true
+          echo "storePassword=android" > simple_live_app/android/keystore.properties
+          echo "keyPassword=android" >> simple_live_app/android/keystore.properties
+          echo "keyAlias=androiddebugkey" >> simple_live_app/android/keystore.properties
+          echo "storeFile=$HOME/.android/debug.keystore" >> simple_live_app/android/keystore.properties
+
+      - name: 强制使用debug签名打包（无需真实签名文件）
+        run: |
+          sed -i 's/signingConfig = signingConfigs.getByName("release")/signingConfig = signingConfigs.debug/' simple_live_app/android/app/build.gradle.kts || true
 
       - run: |
           cd simple_live_app
