@@ -1,14 +1,12 @@
-name: Build APK Only
+name: Build APK
 
 on:
   workflow_dispatch:
-  push:
-    branches: [dev, master]
 
 jobs:
-  build-android:
+  build-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -19,68 +17,34 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.29.0'
+          flutter-version: '3.38.x'
           channel: 'stable'
           cache: true
 
-      - name: 禁用 Flutter 匿名统计
-        run: flutter config --no-analytics
-
-      - name: 安装 Android SDK Platform 36 和 NDK 28
+      - name: 生成调试签名
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "ndk;28.2.13676358"
+          keytool -genkey -v -keystore $HOME/debug.jks \
+            -alias debug -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=Debug, OU=Debug, O=Debug, L=Debug, ST=Debug, C=CN"
+          echo "storeFile=$HOME/debug.jks" > simple_live_app/android/key.properties
+          echo "storePassword=android" >> simple_live_app/android/key.properties
+          echo "keyPassword=android" >> simple_live_app/android/key.properties
+          echo "keyAlias=debug" >> simple_live_app/android/key.properties
 
-      - name: 生成 local.properties
-        run: |
-          echo "sdk.dir=$ANDROID_HOME" > simple_live_app/android/local.properties
-          echo "flutter.sdk=$FLUTTER_HOME" >> simple_live_app/android/local.properties
-
-      - name: 覆写 build.gradle.kts
-        run: |
-          cat > simple_live_app/android/app/build.gradle.kts << 'EOF'
-          plugins {
-              id("com.android.application")
-              id("kotlin-android")
-              id("dev.flutter.flutter-gradle-plugin")
-          }
-
-          android {
-              namespace = "com.example.simple_live"
-              compileSdk = 36
-              ndkVersion = "28.2.13676358"
-
-              defaultConfig {
-                  applicationId = "com.example.simple_live"
-                  minSdk = 21
-                  targetSdk = 36
-                  versionCode = 1
-                  versionName = "1.0.0"
-              }
-
-              buildTypes {
-                  release {
-                      signingConfig = signingConfigs.debug
-                  }
-              }
-          }
-
-          flutter {
-              source = "../.."
-          }
-          EOF
-
-      - name: 修复 intl 版本冲突并安装依赖
+      - name: 安装依赖
         working-directory: ./simple_live_app
-        run: |
-          sed -i 's/intl:.*/intl: 0.19.0/' pubspec.yaml
-          flutter pub get
+        run: flutter pub get
 
-      - name: 打包 APK
+      - name: 构建 APK
         working-directory: ./simple_live_app
-        run: flutter build apk --release
+        run: flutter build apk --release --split-per-abi
 
       - name: 上传 APK
         uses: actions/upload-artifact@v4
         with:
-          name: simple_live_app
-          path: simple_live_app/build/app/outputs/flutter-apk/app-release.apk
+          name: simple_live_android
+          path: |
+            simple_live_app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            simple_live_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            simple_live_app/build/app/outputs/flutter-apk/app-x86_64-release.apk
